@@ -1,4 +1,4 @@
-module { now, toMillisSinceEpoch, line, readUtf8 } -> [Conf, run, stub, identity]
+module { now, toMillisSinceEpoch, line, readUtf8 } -> [Conf, run, stub, identity, partition]
 
 # Runner
 
@@ -11,7 +11,7 @@ Conf result1 err1 result2 err2 : {
 run : Conf result1 err1 result2 err2 -> Task {} _ where result1 implements Inspect.Inspect, result2 implements Inspect.Inspect, err1 implements Inspect.Inspect, err2 implements Inspect.Inspect
 run = \conf ->
     Task.forEach conf.inputFiles \fileName ->
-        line! (Str.concat "Processing file" fileName)
+        line! (Str.concat "Processing file " fileName)
         contents = readUtf8! fileName
 
         result1Before = now! {} |> toMillisSinceEpoch
@@ -55,3 +55,11 @@ stub = \_ -> Ok "TODO"
 
 identity : val -> val
 identity = \val -> val
+
+partition : List val, (val -> Bool) -> (List val, List val)
+partition = \list, pred ->
+    List.walk list ([], []) \(passes, failes), cur ->
+        if pred cur then
+            (List.append passes cur, failes)
+        else
+            (passes, List.append failes cur)
