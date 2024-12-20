@@ -38,7 +38,7 @@ solve1 = \str ->
                 isXmasInDirection grid dir xPoint
     )
     |> List.join
-    |> List.keepIf identity
+    |> List.keepIf Common.identity
     |> List.len
     |> Ok
 
@@ -89,9 +89,6 @@ buildGrid = \str ->
     |> List.join
     |> Dict.fromList
 
-identity : val -> val
-identity = \val -> val
-
 # Algo - Part 2
 
 solve2 : Str -> Result U64 Str
@@ -114,10 +111,10 @@ solve2 = \str ->
                     calcXDashmasInDirection grid secondDiagonal
                     |> Result.withDefault Bool.false,
                 ]
-                identity
+                Common.identity
 
     )
-    |> List.keepIf identity
+    |> List.keepIf Common.identity
     |> List.len
     |> Ok
 

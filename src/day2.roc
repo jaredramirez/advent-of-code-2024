@@ -1,39 +1,33 @@
 app [main] { pf: platform "https://github.com/roc-lang/basic-cli/releases/download/0.17.0/lZFLstMUCUvd5bjnnpYromZJXkQUrdhbva4xdBInicE.tar.br" }
 
 import pf.File
-import pf.Stdout
+import pf.Stdout as Stdout
+import pf.Utc
+
+import Common {
+    now: Utc.now,
+    toMillisSinceEpoch: Utc.toMillisSinceEpoch,
+    line: Stdout.line,
+    readUtf8: File.readUtf8,
+}
 
 main =
-    Task.forEach inputFiles \fileName ->
-        contents = File.readUtf8! fileName
-        result = solve contents
-        when result is
-            Ok val ->
-                [fileName, Num.toStr val.numSafe, Num.toStr val.numSafeWithDampener]
-                |> Str.joinWith " "
-                |> Stdout.line
+    Common.run! {
+        inputFiles: [
+            "src/day2Inputs/sample.txt",
+            "src/day2Inputs/input.txt",
+        ],
+        solve1: solve1,
+        solve2: solve2,
+    }
 
-            Err problem -> Task.err problem
+# Algo - Part 1
 
-inputFiles : List Str
-inputFiles = [
-    "src/day2/sample.txt",
-    "src/day2/input.txt",
-]
-
-# Solve
-
-solve :
-    Str
-    ->
-    Result
-        { numSafe : U64, numSafeWithDampener : U64 }
-        [InvalidNumStr]
-solve = \raw ->
+solve1 : Str -> Result U64 [InvalidNumStr]
+solve1 = \raw ->
     parsed = try parseInput raw
     numSafe = getNumSafe parsed
-    numSafeWithDampener = getNumSafeWithDampener parsed
-    Ok { numSafe: numSafe, numSafeWithDampener: numSafeWithDampener }
+    Ok numSafe
 
 # Parse
 
@@ -93,6 +87,12 @@ checkIfReportSafe = \report ->
     |> Result.map (\_ -> {})
 
 # Algo - Part 2
+
+solve2 : Str -> Result U64 [InvalidNumStr]
+solve2 = \raw ->
+    parsed = try parseInput raw
+    numSafeWithDampener = getNumSafeWithDampener parsed
+    Ok numSafeWithDampener
 
 getNumSafeWithDampener : List (List I32) -> U64
 getNumSafeWithDampener = \reports ->

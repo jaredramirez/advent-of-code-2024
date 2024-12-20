@@ -1,6 +1,6 @@
-module { now, toMillisSinceEpoch, line, readUtf8 } -> [Conf, run, stub]
+module { now, toMillisSinceEpoch, line, readUtf8 } -> [Conf, run, stub, identity]
 
-# Common
+# Runner
 
 Conf result1 err1 result2 err2 : {
     inputFiles : List Str,
@@ -50,3 +50,8 @@ run = \conf ->
 
 stub : Str -> Result Str {}
 stub = \_ -> Ok "TODO"
+
+# Common
+
+identity : val -> val
+identity = \val -> val

@@ -1,4 +1,4 @@
 .PHONY: dev
 
 dev:
-	echo "${ROC_MAIN}" | entr -c roc dev ${ROC_MAIN}
+	echo -e "${ROC_MAIN}\nsrc/Common.roc" | entr -c roc dev ${ROC_MAIN}

@@ -1,38 +1,33 @@
 app [main] { pf: platform "https://github.com/roc-lang/basic-cli/releases/download/0.17.0/lZFLstMUCUvd5bjnnpYromZJXkQUrdhbva4xdBInicE.tar.br" }
 
 import pf.File
-import pf.Stdout
+import pf.Stdout as Stdout
+import pf.Utc
+
+import Common {
+    now: Utc.now,
+    toMillisSinceEpoch: Utc.toMillisSinceEpoch,
+    line: Stdout.line,
+    readUtf8: File.readUtf8,
+}
 
 main =
-    Task.forEach inputFiles \fileName ->
-        contents = File.readUtf8! fileName
-        result = solve contents
-        when result is
-            Ok val ->
-                [fileName, Num.toStr val.distance, Num.toStr val.similarity]
-                |> Str.joinWith " "
-                |> Stdout.line
+    Common.run! {
+        inputFiles: [
+            "src/day1Inputs/sample.txt",
+            "src/day1Inputs/input.txt",
+        ],
+        solve1: solve1,
+        solve2: solve2,
+    }
 
-            Err problem -> Task.err problem
+# Algo - Part 1
 
-inputFiles : List Str
-inputFiles = ["src/day1/sample.txt", "src/day1/input.txt"]
-
-# Solve
-
-solve :
-    Str
-    ->
-    Result
-        { distance : I32, similarity : I32 }
-        [CouldNotParseLine Str, InvalidNumStr, ListWasEmpty, NotFound [Left, Right] I32]
-solve = \raw ->
+solve1 : Str -> Result I32 [CouldNotParseLine Str, InvalidNumStr, ListWasEmpty, NotFound [Left, Right] I32]
+solve1 = \raw ->
     leftsRights = try parseInput raw
     dist = try getDistance leftsRights
-    sim = getSimiliarity leftsRights
-    Ok { distance: dist, similarity: sim }
-
-# Parse
+    Ok dist
 
 parseInput :
     Str
@@ -89,6 +84,12 @@ getNextPairsDistance = \(lefts, rights) ->
     )
 
 # Algo - Part 2
+
+solve2 : Str -> Result I32 [CouldNotParseLine Str, InvalidNumStr, ListWasEmpty, NotFound [Left, Right] I32]
+solve2 = \raw ->
+    leftsRights = try parseInput raw
+    similarity = getSimiliarity leftsRights
+    Ok similarity
 
 getSimiliarity : (List I32, List I32) -> I32
 getSimiliarity = \(lefts, rights) ->
