@@ -9,7 +9,7 @@ main =
         result = solve contents
         when result is
             Ok val ->
-                [fileName, Num.toStr val.distance, Num.toStr val.similarity]
+                [fileName, Num.toStr val.numSafe, Num.toStr val.numSafeWithDampener]
                 |> Str.joinWith " "
                 |> Stdout.line
 
@@ -18,7 +18,7 @@ main =
 inputFiles : List Str
 inputFiles = [
     "src/day2/sample.txt",
-    # "src/day2/input.txt",
+    "src/day2/input.txt",
 ]
 
 # Solve
@@ -27,80 +27,95 @@ solve :
     Str
     ->
     Result
-        { distance : I32, similarity : I32 }
-        [CouldNotParseLine Str, InvalidNumStr, ListWasEmpty, NotFound [Left, Right] I32]
+        { numSafe : U64, numSafeWithDampener : U64 }
+        [InvalidNumStr]
 solve = \raw ->
-    leftsRights = try parseInput raw
-    dist = try getDistance leftsRights
-    sim = getSimiliarity leftsRights
-    Ok { distance: dist, similarity: sim }
+    parsed = try parseInput raw
+    numSafe = getNumSafe parsed
+    numSafeWithDampener = getNumSafeWithDampener parsed
+    Ok { numSafe: numSafe, numSafeWithDampener: numSafeWithDampener }
 
 # Parse
 
 parseInput :
     Str
     -> Result
-        (List I32, List I32)
-        [CouldNotParseLine Str, InvalidNumStr]
+        (List (List I32))
+        [InvalidNumStr]
 parseInput = \str ->
     lines = Str.splitOn str "\n" |> List.keepIf \s -> s != ""
-    List.walkTry lines ([], []) \(lefts, rights), curLine ->
-        when Str.splitOn curLine "   " is
-            [nextLeftStr, nextRightStr] ->
-                nextLeft = try Str.toI32 nextLeftStr
-                nextRight = try Str.toI32 nextRightStr
-                Ok (List.prepend lefts nextLeft, List.prepend rights nextRight)
-
-            _ -> Err (CouldNotParseLine curLine)
+    List.mapTry lines \curLine ->
+        split = Str.splitOn curLine " "
+        List.mapTry split Str.toI32
 
 # Algo - Part 1
 
-getDistance : (List I32, List I32) -> Result I32 [NotFound [Left, Right] I32]
-getDistance = \leftsRights ->
-    nextDistResult = getNextPairsDistance leftsRights
-    when nextDistResult is
-        Err ListWasEmpty -> Ok 0
-        Err (NotFound letOrRight val) -> Err (NotFound letOrRight val)
-        Ok (nextLeftsRights, dist) ->
-            nextDist = try getDistance nextLeftsRights
-            Ok (dist + nextDist)
+getNumSafe : List (List I32) -> U64
+getNumSafe = \reports ->
+    reports
+    |> List.keepOks checkIfReportSafe
+    |> List.len
 
-getNextPairsDistance :
-    (List I32, List I32)
-    -> Result
-        ((List I32, List I32), I32)
-        [ListWasEmpty, NotFound [Left, Right] I32]
-getNextPairsDistance = \(lefts, rights) ->
-    nextSmallestLeft = try List.min lefts
-    nextSmallestLeftIndex =
-        List.findFirstIndex lefts (\elem -> elem == nextSmallestLeft)
-        |> Result.mapErr (\NotFound -> NotFound Left nextSmallestRight)
-        |> try
+checkIfReportSafe :
+    List I32
+    -> Result {} [
+        ListWasEmpty,
+        InvalidDistance I32 I32,
+        Expected [Asc, Desc] I32 I32,
+    ]
+checkIfReportSafe = \report ->
+    head = try List.first report
+    report
+    |> List.dropFirst 1
+    |> List.walkTry (head, Any) \(lastLevel, direction), thisLevel ->
+        dist = Num.abs (lastLevel - thisLevel)
+        if dist >= 1 && dist <= 3 then
+            when direction is
+                Any ->
+                    Ok (
+                        thisLevel,
+                        if thisLevel > lastLevel then Asc else Desc,
+                    )
 
-    nextSmallestRight = try List.min rights
-    nextSmallestRightIndex =
-        List.findFirstIndex rights (\elem -> elem == nextSmallestRight)
-        |> Result.mapErr (\NotFound -> NotFound Right nextSmallestRight)
-        |> try
+                Asc ->
+                    if thisLevel > lastLevel then
+                        Ok (thisLevel, Asc)
+                    else
+                        Err (Expected Asc lastLevel thisLevel)
 
-    Ok (
-        (
-            List.dropAt lefts nextSmallestLeftIndex,
-            List.dropAt rights nextSmallestRightIndex,
-        ),
-        Num.abs (nextSmallestLeft - nextSmallestRight),
-    )
+                Desc ->
+                    if thisLevel < lastLevel then
+                        Ok (thisLevel, Desc)
+                    else
+                        Err (Expected Desc lastLevel thisLevel)
+        else
+            Err (InvalidDistance lastLevel thisLevel)
+    |> Result.map (\_ -> {})
 
 # Algo - Part 2
 
-getSimiliarity : (List I32, List I32) -> I32
-getSimiliarity = \(lefts, rights) ->
-    lefts
-    |> List.map \leftVal ->
-        occurrencesInRight =
-            rights
-            |> List.keepIf (\rightVal -> rightVal == leftVal)
-            |> List.len
-            |> Num.toI32
-        leftVal * occurrencesInRight
-    |> List.sum
+getNumSafeWithDampener : List (List I32) -> U64
+getNumSafeWithDampener = \reports ->
+    reports
+    |> List.keepIf \report ->
+        when checkIfReportSafe report is
+            Ok {} -> Bool.true
+            Err _ ->
+                report
+                |> makePermutations
+                |> List.map checkIfReportSafe
+                |> List.any Result.isOk
+    |> List.len
+
+# Given a list, return a list of lists where each element is removed
+#
+# Given [1, 2, 3], this would return
+#   * [ 2, 3 ]
+#   * [ 1, 3 ]
+#   * [ 1, 2 ]
+makePermutations : List val -> List (List val)
+makePermutations = \list ->
+    duped = List.repeat list (List.len list)
+    List.mapWithIndex duped \elem, index ->
+        List.dropAt elem index
+

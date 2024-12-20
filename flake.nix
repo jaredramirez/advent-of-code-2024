@@ -15,6 +15,7 @@
           buildInputs = [
             (inputs.roc.packages.${system}.cli)
             (inputs.roc.packages.${system}.lang-server)
+            pkgs.entr
           ];
         };
       });

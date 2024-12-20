@@ -1,2 +1,5 @@
 .direnv
 src/**/main
+src/day*
+!src/day*.roc
+!src/day*/
