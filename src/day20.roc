@@ -77,38 +77,42 @@ getPathLen = \path -> (List.len path) - 1
 
 findPathsCheat : Grid, Point, Set Point, CheatState -> List Path
 findPathsCheat = \grid, curPoint, visitedPoints, cheatState ->
-    recurse = \nextCheatState ->
-        nextPoints =
-            getPointsAround curPoint
-            |> List.keepIf (\nextPoint -> !(Set.contains visitedPoints nextPoint))
-        nextVisitedPoints = Set.insert visitedPoints curPoint
-        List.joinMap nextPoints \nextPoint ->
-            paths = findPathsCheat grid nextPoint nextVisitedPoints nextCheatState
-            List.map paths (\path -> List.prepend path curPoint)
+    resultOrRecurse =
+        when Dict.get grid curPoint is
+            Ok End -> Result [[curPoint]]
+            Ok Track | Ok Start ->
+                when cheatState is
+                    InCheat | AlreadyCheated ->
+                        Recurse AlreadyCheated
 
-    when Dict.get grid curPoint is
-        Ok End -> [[curPoint]]
-        Ok Track | Ok Start ->
-            when cheatState is
-                InCheat | AlreadyCheated ->
-                    recurse AlreadyCheated
+                    NotInCheat ->
+                        Recurse NotInCheat
 
-                NotInCheat ->
-                    recurse NotInCheat
+            Ok Wall ->
+                when cheatState is
+                    NotInCheat ->
+                        Recurse InCheat
 
-        Ok Wall ->
-            when cheatState is
-                NotInCheat ->
-                    recurse InCheat
+                    InCheat | AlreadyCheated -> Result []
 
-                InCheat | AlreadyCheated -> []
+            Err _ -> Result []
 
-        Err _ -> []
+    when resultOrRecurse is
+        Result res -> res
+        Recurse nextCheatState ->
+            nextPoints =
+                getPointsAround curPoint
+                |> List.keepIf (\nextPoint -> !(Set.contains visitedPoints nextPoint))
+            nextVisitedPoints = Set.insert visitedPoints curPoint
+            List.joinMap nextPoints \nextPoint ->
+                prependPaths = \paths -> List.map paths (\path -> List.prepend path curPoint)
+                prependPaths (findPathsCheat grid nextPoint nextVisitedPoints nextCheatState)
 
 findPathsBase : Grid, Point, Set Point -> List Path
 findPathsBase = \grid, curPoint, visitedPoints ->
     dbg curPoint
     when Dict.get grid curPoint is
+        Ok Wall | Err _ -> []
         Ok End -> [[curPoint]]
         Ok Track | Ok Start ->
             nextPoints =
@@ -116,10 +120,8 @@ findPathsBase = \grid, curPoint, visitedPoints ->
                 |> List.keepIf (\nextPoint -> !(Set.contains visitedPoints nextPoint))
             nextVisitedPoints = Set.insert visitedPoints curPoint
             List.joinMap nextPoints \nextPoint ->
-                paths = findPathsBase grid nextPoint nextVisitedPoints
-                List.map paths (\path -> List.prepend path curPoint)
-
-        Ok Wall | Err _ -> []
+                prependPaths = \paths -> List.map paths (\path -> List.prepend path curPoint)
+                prependPaths (findPathsBase grid nextPoint nextVisitedPoints)
 
 getPointsAround : Point -> List Point
 getPointsAround = \(x, y) -> [
