@@ -15,7 +15,8 @@
           buildInputs = [
             (inputs.roc.packages.${system}.cli)
             (inputs.roc.packages.${system}.lang-server)
-            pkgs.entr
+            pkgs.just
+            pkgs.watchexec
           ];
         };
       });
