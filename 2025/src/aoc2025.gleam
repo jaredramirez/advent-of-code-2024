@@ -6,6 +6,15 @@ import gleam/result
 import days/day1
 import days/day2
 import days/day3
+import days/day4
+import days/day5
+import days/day6
+import days/day7
+import days/day8
+import days/day9
+import days/day10
+import days/day11
+import days/day12
 import puzzle
 
 pub fn main() -> Nil {
@@ -43,6 +52,60 @@ fn puzzle_calllback(day_part: DayPart) -> Result(Nil, String) {
       case day_part.part {
         Part1 -> day3.part_1_run(day_part.input)
         Part2 -> day3.part_2_run(day_part.input)
+      }
+    }
+    4 -> {
+      case day_part.part {
+        Part1 -> day4.part_1_run(day_part.input)
+        Part2 -> day4.part_2_run(day_part.input)
+      }
+    }
+    5 -> {
+      case day_part.part {
+        Part1 -> day5.part_1_run(day_part.input)
+        Part2 -> day5.part_2_run(day_part.input)
+      }
+    }
+    6 -> {
+      case day_part.part {
+        Part1 -> day6.part_1_run(day_part.input)
+        Part2 -> day6.part_2_run(day_part.input)
+      }
+    }
+    7 -> {
+      case day_part.part {
+        Part1 -> day7.part_1_run(day_part.input)
+        Part2 -> day7.part_2_run(day_part.input)
+      }
+    }
+    8 -> {
+      case day_part.part {
+        Part1 -> day8.part_1_run(day_part.input)
+        Part2 -> day8.part_2_run(day_part.input)
+      }
+    }
+    9 -> {
+      case day_part.part {
+        Part1 -> day9.part_1_run(day_part.input)
+        Part2 -> day9.part_2_run(day_part.input)
+      }
+    }
+    10 -> {
+      case day_part.part {
+        Part1 -> day10.part_1_run(day_part.input)
+        Part2 -> day10.part_2_run(day_part.input)
+      }
+    }
+    11 -> {
+      case day_part.part {
+        Part1 -> day11.part_1_run(day_part.input)
+        Part2 -> day11.part_2_run(day_part.input)
+      }
+    }
+    12 -> {
+      case day_part.part {
+        Part1 -> day12.part_1_run(day_part.input)
+        Part2 -> day12.part_2_run(day_part.input)
       }
     }
     day_int -> Error("Day " <> int.to_string(day_int) <> " is not yet support")
