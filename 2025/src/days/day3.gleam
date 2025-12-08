@@ -6,7 +6,6 @@ import gleam/result
 import gleam/string
 import simplifile
 
-import help
 import puzzle
 
 // -----------------------------------------------------------------------------
@@ -67,9 +66,77 @@ pub fn get_highest_combo(string: String) -> Result(String, Nil) {
 // Part 2
 
 pub fn part_2_run(input: puzzle.Input) -> Result(Nil, String) {
-  use _input_str <- result.try(part_1_input(input))
-  io.println("Answer: " <> string.inspect(Nil))
+  use input_str <- result.try(part_1_input(input))
+
+  let banks =
+    input_str
+    |> string.trim
+    |> string.split(on: "\n")
+  let banks_len = list.length(banks)
+
+  io.println("Checking " <> int.to_string(banks_len) <> " banks...")
+
+  use top_joltages <- result.try(
+    banks
+    |> list.zip(list.range(0, banks_len))
+    |> list.try_map(fn(tuple) {
+      io.println("Checking bank " <> int.to_string(tuple.1) <> "...")
+      get_max_joltage(tuple.0)
+    })
+    |> result.map_error(fn(_) { "Could not find highest combo" }),
+  )
+
+  let answer = int.sum(top_joltages)
+
+  io.println("Answer: " <> string.inspect(answer))
   Ok(Nil)
+}
+
+pub fn get_max_joltage(str: String) -> Result(Int, Nil) {
+  use int_combos <- result.try(
+    str
+    |> build_combinations
+    |> list.filter(fn(combo) { string.length(combo) == 12 })
+    |> list.try_map(int.parse),
+  )
+
+  int_combos
+  |> list.sort(fn(a, b) { int.compare(b, a) })
+  |> list.first
+}
+
+pub fn build_combinations(str: String) -> List(String) {
+  build_combinations_help("", string.to_graphemes(str))
+}
+
+fn build_combinations_help(
+  prefix: String,
+  graphemes: List(String),
+) -> List(String) {
+  case graphemes {
+    [] -> []
+    [first, ..rest] -> {
+      // First, get this combo
+      let this_combo = prefix <> first
+
+      case string.length(this_combo) > 12 {
+        True -> []
+        False -> {
+          // Then get all nested combos with this prefix
+          let others_with_this_combo = build_combinations_help(this_combo, rest)
+
+          // Get other combos for the rest of this list
+          let other_combos = build_combinations_help(prefix, rest)
+
+          list.flatten([
+            [this_combo],
+            others_with_this_combo,
+            other_combos,
+          ])
+        }
+      }
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------
