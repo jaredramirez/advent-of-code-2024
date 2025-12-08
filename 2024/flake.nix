@@ -7,10 +7,14 @@
     roc.url = "github:roc-lang/roc";
   };
 
-  outputs = inputs@{ self, ... }:
-    inputs.flake-util.lib.eachDefaultSystem (system:
-      let pkgs = import inputs.nixpkgs { inherit system; };
-      in {
+  outputs =
+    inputs@{ self, ... }:
+    inputs.flake-util.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = import inputs.nixpkgs { inherit system; };
+      in
+      {
         devShells.default = pkgs.mkShell {
           buildInputs = [
             (inputs.roc.packages.${system}.cli)
@@ -19,6 +23,6 @@
             pkgs.watchexec
           ];
         };
-      });
+      }
+    );
 }
-
