@@ -62,7 +62,7 @@ pub fn part_2_run(input: puzzle.Input) -> Result(Nil, String) {
 }
 
 // -----------------------------------------------------------------------------
-// IMPL
+// Impl
 
 type Obj {
   Empty
