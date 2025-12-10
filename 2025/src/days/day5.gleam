@@ -3,6 +3,8 @@ import gleam/io
 import gleam/list
 import gleam/result
 import gleam/string
+import help
+import iv.{type Array}
 import simplifile
 
 import puzzle
@@ -28,8 +30,21 @@ pub fn part_1_run(input: puzzle.Input) -> Result(Nil, String) {
 // Part 2
 
 pub fn part_2_run(input: puzzle.Input) -> Result(Nil, String) {
-  use _input_str <- result.try(part_1_input(input))
-  io.println("Answer: " <> string.inspect(Nil))
+  use input_str <- result.try(part_1_input(input))
+
+  use db <- result.try(
+    input_str
+    |> string.trim
+    |> parse_db,
+  )
+  let range_arr = iv.from_list(db.fresh_id_ranges)
+  let flatted_ranges_arr = flatten_ranges(range_arr)
+  let total_values_in_range =
+    iv.fold(flatted_ranges_arr, 0, fn(acc_count, cur_range) {
+      acc_count + { { cur_range.end + 1 } - cur_range.start }
+    })
+
+  io.println("Answer: " <> string.inspect(total_values_in_range))
   Ok(Nil)
 }
 
@@ -37,13 +52,84 @@ pub fn part_2_run(input: puzzle.Input) -> Result(Nil, String) {
 // Impl
 
 /// A range inclusive on both ends
-type Range {
+pub type Range {
   Range(start: Int, end: Int)
 }
 
 /// A range inclusive on both ends
 type Db {
   Db(fresh_id_ranges: List(Range), ids: List(Int))
+}
+
+fn flatten_ranges(initial_ranges: Array(Range)) -> Array(Range) {
+  help.loop(initial_ranges, fn(cur) {
+    let cur_ranges_len = iv.length(cur)
+
+    let flattened = flatten_ranges_help(cur)
+    let flattened_len = iv.length(flattened)
+
+    case cur_ranges_len == flattened_len {
+      True -> help.Stop(flattened)
+      False -> help.Continue(flattened)
+    }
+  })
+}
+
+fn flatten_ranges_help(ranges: Array(Range)) -> Array(Range) {
+  iv.fold(ranges, iv.new(), fn(acc_ranges, cur_range) {
+    let res_idx_to_update =
+      acc_ranges
+      |> iv.find_index(fn(acc_range) {
+        compare_ranges(acc_range, cur_range) != NoOverlap
+      })
+
+    case res_idx_to_update {
+      Error(Nil) -> {
+        iv.append(acc_ranges, cur_range)
+      }
+      Ok(idx) -> {
+        iv.update(acc_ranges, idx, fn(acc_range) {
+          merge_ranges(acc_range, cur_range)
+          |> result.lazy_unwrap(fn() { panic as "Could not merge ranges" })
+        })
+        |> result.lazy_unwrap(fn() {
+          panic as { "Could not find idx" <> int.to_string(idx) }
+        })
+      }
+    }
+  })
+}
+
+pub type RangeCompare {
+  NoOverlap
+
+  AContainedWithinB
+  BContainedWithinA
+
+  AEndBStartOverlap
+  BEndAStartOverlap
+}
+
+pub fn merge_ranges(a: Range, b: Range) -> Result(Range, Nil) {
+  case compare_ranges(a, b) {
+    NoOverlap -> Error(Nil)
+
+    AContainedWithinB -> Ok(b)
+    BContainedWithinA -> Ok(a)
+
+    AEndBStartOverlap | BEndAStartOverlap ->
+      Ok(Range(int.min(a.start, b.start), int.max(a.end, b.end)))
+  }
+}
+
+pub fn compare_ranges(a: Range, b: Range) {
+  case Nil {
+    _ if a.start >= b.start && a.end <= b.end -> AContainedWithinB
+    _ if b.start >= a.start && b.end <= a.end -> BContainedWithinA
+    _ if a.start <= b.start && a.end >= b.start -> AEndBStartOverlap
+    _ if b.start <= a.start && b.end >= a.start -> BEndAStartOverlap
+    _ -> NoOverlap
+  }
 }
 
 fn find_fresh_ids(db: Db) -> List(Int) {

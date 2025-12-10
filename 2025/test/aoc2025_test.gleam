@@ -5,6 +5,7 @@ import non_empty_list
 
 import days/day2
 import days/day3
+import days/day5
 
 pub fn main() -> Nil {
   gleeunit.main()
@@ -76,4 +77,52 @@ pub fn day_3_get_highest_combo2_test() {
 
   assert day3.get_max_joltage("818181911112111", 2) == Ok(92)
   assert day3.get_max_joltage("818181911112111", 12) == Ok(888_911_112_111)
+}
+
+pub fn day5_compare_ranges_test() {
+  assert day5.compare_ranges(day5.Range(0, 1), day5.Range(4, 5))
+    == day5.NoOverlap
+
+  assert day5.compare_ranges(day5.Range(0, 1), day5.Range(1, 2))
+    == day5.AEndBStartOverlap
+
+  assert day5.compare_ranges(day5.Range(1, 2), day5.Range(0, 1))
+    == day5.BEndAStartOverlap
+
+  assert day5.compare_ranges(day5.Range(1, 2), day5.Range(0, 1))
+    == day5.BEndAStartOverlap
+
+  assert day5.compare_ranges(day5.Range(1, 10), day5.Range(5, 6))
+    == day5.BContainedWithinA
+
+  assert day5.compare_ranges(day5.Range(5, 6), day5.Range(1, 10))
+    == day5.AContainedWithinB
+
+  assert day5.compare_ranges(day5.Range(50, 100), day5.Range(150, 200))
+    == day5.NoOverlap
+}
+
+pub fn day5_merge_ranges_test() {
+  assert day5.merge_ranges(day5.Range(0, 1), day5.Range(4, 5)) == Error(Nil)
+
+  assert day5.merge_ranges(day5.Range(0, 1), day5.Range(1, 2))
+    == Ok(day5.Range(0, 2))
+
+  assert day5.merge_ranges(day5.Range(1, 2), day5.Range(0, 1))
+    == Ok(day5.Range(0, 2))
+
+  assert day5.merge_ranges(day5.Range(7, 10), day5.Range(5, 8))
+    == Ok(day5.Range(5, 10))
+
+  assert day5.merge_ranges(day5.Range(1, 10), day5.Range(5, 6))
+    == Ok(day5.Range(1, 10))
+
+  assert day5.merge_ranges(day5.Range(5, 6), day5.Range(1, 10))
+    == Ok(day5.Range(1, 10))
+
+  assert day5.merge_ranges(day5.Range(50, 100), day5.Range(150, 200))
+    == Error(Nil)
+
+  assert day5.merge_ranges(day5.Range(10, 18), day5.Range(16, 20))
+    == Ok(day5.Range(10, 20))
 }
