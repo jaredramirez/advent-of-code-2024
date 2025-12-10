@@ -1,19 +1,24 @@
 import gleam/order
+import gleam/result
 import gleam/string
 import gleeunit
+import iv
 import non_empty_list
 
 import days/day2
 import days/day3
 import days/day5
+import days/day6
 
 pub fn main() -> Nil {
   gleeunit.main()
 }
 
-pub fn str_compare_test() {
+pub fn random_test() {
   assert string.compare("1", "2") == order.Lt
   assert string.compare("9", "8") == order.Gt
+  assert string.split("123   33 1  33", on: " ")
+    == ["123", "", "", "33", "1", "", "33"]
 }
 
 pub fn day_2_is_number_palindrome_test() {
@@ -125,4 +130,30 @@ pub fn day5_merge_ranges_test() {
 
   assert day5.merge_ranges(day5.Range(10, 18), day5.Range(16, 20))
     == Ok(day5.Range(10, 20))
+}
+
+pub fn day6_rotate_arrays_test() {
+  {
+    let lhs =
+      iv.from_list([
+        iv.from_list([1, 2, 3]),
+        iv.from_list([4, 5, 6]),
+      ])
+    let rhs =
+      iv.from_list([
+        iv.from_list([1, 4]),
+        iv.from_list([2, 5]),
+        iv.from_list([3, 6]),
+      ])
+    assert day6.rotate_arrays(lhs) == Ok(rhs)
+  }
+
+  {
+    let lhs =
+      iv.from_list([
+        iv.from_list([1, 2, 3]),
+        iv.from_list([4, 5]),
+      ])
+    assert result.is_error(day6.rotate_arrays(lhs))
+  }
 }
