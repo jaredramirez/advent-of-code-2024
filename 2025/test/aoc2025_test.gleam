@@ -157,3 +157,17 @@ pub fn day6_rotate_arrays_test() {
     assert result.is_error(day6.rotate_arrays(lhs))
   }
 }
+
+pub fn day6_str_to_cephalopod_num_test() {
+  assert {
+      day6.str_to_cephalopod_nums(iv.from_list(["64 ", "23 ", "314"]))
+      |> result.map(iv.to_list)
+    }
+    == Ok([4, 431, 623])
+
+  assert {
+      day6.str_to_cephalopod_nums(iv.from_list([" 51", "387", "215"]))
+      |> result.map(iv.to_list)
+    }
+    == Ok([175, 581, 32])
+}
