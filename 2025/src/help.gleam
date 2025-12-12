@@ -3,6 +3,10 @@ import gleam/io
 import gleam/result
 import gleam/string
 
+pub fn set_err_msg(result: Result(val, Nil), msg: String) -> Result(val, String) {
+  result.map_error(result, fn(_) { msg })
+}
+
 pub type ContinueOrStop(loop_state, final) {
   Continue(loop_state)
   Stop(final)
