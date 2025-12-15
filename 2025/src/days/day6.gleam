@@ -1,5 +1,3 @@
-import gleam/dict
-import gleam/function
 import gleam/int
 import gleam/io
 import gleam/list

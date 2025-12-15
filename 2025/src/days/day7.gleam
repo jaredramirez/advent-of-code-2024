@@ -1,9 +1,6 @@
-import gleam/dict.{type Dict}
 import gleam/function
-import gleam/int
 import gleam/io
 import gleam/list
-import gleam/option
 import gleam/result
 import gleam/set
 import gleam/string
@@ -151,16 +148,6 @@ fn count_splits(diagram: Diagram(Cell)) -> Int {
   |> iv.fold(0, fn(acc, cur) { acc + cur })
 }
 
-fn diagram_to_string(diagram: Diagram(Cell)) -> String {
-  diagram.rows
-  |> iv.map(fn(row) {
-    row
-    |> iv.map(cell_to_string)
-    |> iv.join(with: "")
-  })
-  |> iv.join(with: "\n")
-}
-
 fn eval_diagram(initial_diagram: Diagram(Cell)) -> Result(Diagram(Cell), String) {
   list.range(0, iv.length(initial_diagram.rows) - 1)
   |> list.try_fold(initial_diagram, fn(acc_diagram, i) {
@@ -236,11 +223,6 @@ fn get_at(diagram: Diagram(cell), point: Point) -> Result(cell, Nil) {
   iv.get(row, point.y)
 }
 
-fn get_at2(rows: Array(Array(cell)), point: Point) -> Result(cell, Nil) {
-  use row <- result.try(iv.get(rows, point.x))
-  iv.get(row, point.y)
-}
-
 type Cell {
   Start
   Beam
@@ -249,16 +231,26 @@ type Cell {
   NumTimeline(Int)
 }
 
-fn cell_to_string(cell: Cell) -> String {
-  case cell {
-    Start -> "S"
-    Beam -> "|"
-    Space -> "."
-    Splitter -> "^"
-    NumTimeline(num) if num > 10 -> "x"
-    NumTimeline(num) -> int.to_string(num)
-  }
-}
+// fn diagram_to_string(diagram: Diagram(Cell)) -> String {
+//   diagram.rows
+//   |> iv.map(fn(row) {
+//     row
+//     |> iv.map(cell_to_string)
+//     |> iv.join(with: "")
+//   })
+//   |> iv.join(with: "\n")
+// }
+
+// fn cell_to_string(cell: Cell) -> String {
+//   case cell {
+//     Start -> "S"
+//     Beam -> "|"
+//     Space -> "."
+//     Splitter -> "^"
+//     NumTimeline(num) if num > 10 -> "x"
+//     NumTimeline(num) -> int.to_string(num)
+//   }
+// }
 
 /// Parse input string into a dict of points & cells
 fn parse(str: String) -> Result(Diagram(Cell), String) {
