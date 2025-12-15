@@ -8,6 +8,7 @@ import gleam/result
 import gleam/set
 import gleam/string
 import iv.{type Array}
+import non_empty_list
 import simplifile
 
 import help.{set_err_msg}
@@ -37,7 +38,8 @@ pub fn part_2_run(input: puzzle.Input) -> Result(Nil, String) {
   use input_str <- result.try(part_1_input(input))
 
   use diagram <- result.try(parse(input_str))
-  let num_timelines = trace_timelines(diagram)
+  use evaled_diagram <- result.try(eval_diagram(diagram))
+  let num_timelines = trace_timelines(evaled_diagram)
 
   io.println("Answer: " <> string.inspect(num_timelines))
   Ok(Nil)
@@ -46,70 +48,85 @@ pub fn part_2_run(input: puzzle.Input) -> Result(Nil, String) {
 // -----------------------------------------------------------------------------
 // Impl - Part 2
 
-fn trace_timelines(diagram: Diagram(Cell)) -> Result(Int, String) {
-  let dict =
-    iv.index_fold(diagram.rows, dict.new(), fn(acc_dict, cur_row, y) {
-      iv.index_fold(cur_row, acc_dict, fn(sub_acc_dict, cur_cell, x) {
-        dict.insert(sub_acc_dict, Point(x, y), cur_cell)
-      })
+/// Starting from the bottom, trace the beams up towards the root adding together
+/// beams each time a splitter is hit
+/// 
+/// This could stand to be cleaned up a loott
+fn trace_timelines(solved_diagram: Diagram(Cell)) -> Result(Int, String) {
+  let max_idx = iv.length(solved_diagram.rows) - 1
+
+  let traced_diagram =
+    solved_diagram.rows
+    |> iv.index_fold_right(iv.new(), fn(acc_rows, cur_row, row_idx) {
+      let next_row =
+        iv.index_map(cur_row, fn(cell, cell_idx) {
+          case cell {
+            Beam if row_idx == max_idx -> NumTimeline(1)
+            Beam | Start -> {
+              let r_last_row = iv.first(acc_rows)
+              let r_last_cell =
+                result.try(r_last_row, fn(last_row) {
+                  iv.get(last_row, cell_idx)
+                })
+              case r_last_cell {
+                Ok(NumTimeline(num)) -> NumTimeline(num)
+                Ok(Splitter) -> {
+                  let r_left_cell =
+                    r_last_row
+                    |> result.try(fn(last_row) {
+                      iv.get(last_row, cell_idx - 1)
+                    })
+                    |> result.try(fn(cell) {
+                      case cell {
+                        NumTimeline(num) -> Ok(num)
+                        _ -> Error(Nil)
+                      }
+                    })
+                    |> result.unwrap(0)
+
+                  let r_right_cell =
+                    r_last_row
+                    |> result.try(fn(last_row) {
+                      iv.get(last_row, cell_idx + 1)
+                    })
+                    |> result.try(fn(cell) {
+                      case cell {
+                        NumTimeline(num) -> Ok(num)
+                        _ -> Error(Nil)
+                      }
+                    })
+                    |> result.unwrap(0)
+
+                  NumTimeline(r_left_cell + r_right_cell)
+                }
+                Error(Nil) | Ok(_) -> cell
+              }
+            }
+            _ -> cell
+          }
+        })
+      iv.prepend(acc_rows, next_row)
     })
 
-  use start_point <- result.try({
-    let y = 0
-    use first_row <- result.try(
-      iv.get(diagram.rows, y)
-      |> set_err_msg("Invalid index: " <> string.inspect(y)),
-    )
-    iv.index_fold(
-      first_row,
-      Error("Start not found"),
-      fn(res_found, cur_cell, x) {
-        case res_found, cur_cell {
-          Error(_), Start -> Ok(Point(x, y))
-          _, _ -> res_found
+  use first_row_timelines <- result.try(
+    traced_diagram
+    |> iv.first
+    |> result.map(fn(first_row) {
+      iv.filter_map(first_row, fn(cell) {
+        case cell {
+          NumTimeline(n) -> Ok(n)
+          _ -> Error(Nil)
         }
-      },
-    )
-  })
+      })
+    })
+    |> result.map(iv.to_list)
+    |> result.try(non_empty_list.from_list)
+    |> set_err_msg("No timeline nums in first row"),
+  )
 
-  eval_beam_timelines(dict, start_point)
-  |> Ok
-}
+  assert non_empty_list.length(first_row_timelines) == 1
 
-fn eval_beam_timelines(dict: Dict(Point, Cell), start_beam_point: Point) -> _ {
-  let step = eval_next_step(dict, start_beam_point)
-  case step {
-    End -> 1
-    PropgateBeam(next_beam_point) -> eval_beam_timelines(dict, next_beam_point)
-    SplitBeam(next_beam_point_a, next_beam_point_b) -> {
-      let a_beam_count = eval_beam_timelines(dict, next_beam_point_a)
-      let b_beam_count = eval_beam_timelines(dict, next_beam_point_b)
-      a_beam_count + b_beam_count
-    }
-  }
-}
-
-fn eval_next_step(dict: Dict(Point, Cell), cur_beam_point: Point) -> Step {
-  let next_point = Point(cur_beam_point.x, cur_beam_point.y + 1)
-  case dict.get(dict, next_point) {
-    Error(Nil) -> End
-    Ok(next_cell) -> {
-      case next_cell {
-        Beam | Space | Start -> PropgateBeam(next_point)
-        Splitter ->
-          SplitBeam(
-            Point(next_point.x - 1, next_point.y),
-            Point(next_point.x + 1, next_point.y),
-          )
-      }
-    }
-  }
-}
-
-type Step {
-  PropgateBeam(Point)
-  SplitBeam(Point, Point)
-  End
+  Ok(non_empty_list.first(first_row_timelines))
 }
 
 // -----------------------------------------------------------------------------
@@ -171,9 +188,9 @@ fn eval_row(diagram: Diagram(Cell), i: Int) -> Result(Diagram(Cell), String) {
           // Then, if the above cell is a beam, determine if the beam should
           // pass through this cell or split
           case above_cell {
-            Beam | Start -> {
+            Beam | Start | NumTimeline(_) -> {
               case this_cell {
-                Beam | Space | Start -> [Point(i, j)]
+                Beam | Space | Start | NumTimeline(_) -> [Point(i, j)]
                 Splitter -> [Point(i, j - 1), Point(i, j + 1)]
               }
               |> Ok
@@ -219,11 +236,17 @@ fn get_at(diagram: Diagram(cell), point: Point) -> Result(cell, Nil) {
   iv.get(row, point.y)
 }
 
+fn get_at2(rows: Array(Array(cell)), point: Point) -> Result(cell, Nil) {
+  use row <- result.try(iv.get(rows, point.x))
+  iv.get(row, point.y)
+}
+
 type Cell {
   Start
   Beam
   Space
   Splitter
+  NumTimeline(Int)
 }
 
 fn cell_to_string(cell: Cell) -> String {
@@ -232,6 +255,8 @@ fn cell_to_string(cell: Cell) -> String {
     Beam -> "|"
     Space -> "."
     Splitter -> "^"
+    NumTimeline(num) if num > 10 -> "x"
+    NumTimeline(num) -> int.to_string(num)
   }
 }
 
