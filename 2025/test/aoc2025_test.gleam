@@ -9,6 +9,7 @@ import days/day2
 import days/day3
 import days/day5
 import days/day6
+import days/day8
 
 pub fn main() -> Nil {
   gleeunit.main()
@@ -170,4 +171,9 @@ pub fn day6_str_to_cephalopod_num_test() {
       |> result.map(iv.to_list)
     }
     == Ok([175, 581, 32])
+}
+
+pub fn day8_get_distance_test() {
+  assert day8.get_distance(day8.Point(2, 2, 2), day8.Point(6, 7, 8))
+    == Ok(8.774964387392123)
 }
