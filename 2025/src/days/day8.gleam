@@ -4,11 +4,12 @@ import gleam/function
 import gleam/int
 import gleam/io
 import gleam/list
+import gleam/option
 import gleam/result
 import gleam/set.{type Set}
 import gleam/string
 import help
-import iv
+import iv.{type Array}
 import simplifile
 
 import puzzle
@@ -28,9 +29,7 @@ pub fn part_1_run(input: puzzle.Input) -> Result(Nil, String) {
 
   let circuits =
     sorted_points_with_dist
-    |> list.take(num_to_connect)
-    |> connect_circuits
-    |> list.sort(fn(a, b) { int.compare(set.size(b.set), set.size(a.set)) })
+    |> connect_circuits(points, num_to_connect)
     |> list.take(3)
     |> list.fold(1, fn(acc, cur) { acc * set.size(cur.set) })
 
@@ -42,74 +41,148 @@ pub fn part_1_run(input: puzzle.Input) -> Result(Nil, String) {
 // Part 2
 
 pub fn part_2_run(input: puzzle.Input) -> Result(Nil, String) {
-  use _input_str <- result.try(get_input(input))
-  io.println("Answer: " <> string.inspect(Nil))
+  use input_str <- result.try(get_input(input))
+
+  use points <- result.try(parse(input_str))
+  use sorted_points_with_dist <- result.try(calc_distances_and_sort(points))
+
+  let circuits =
+    sorted_points_with_dist
+    |> connect_circuits_until_single(points, list.length(points))
+    |> list.take(3)
+    |> list.fold(1, fn(acc, cur) { acc * set.size(cur.set) })
+
+  io.println("Answer: " <> string.inspect(circuits))
   Ok(Nil)
 }
 
 // -----------------------------------------------------------------------------
-// Impl
+// Impl - Part 2
+
+fn connect_circuits_until_single(
+  sorted_connected_points_with_dist: List(#(Point, Point, Float)),
+  all_points: List(Point),
+  num_to_connect: Int,
+) -> List(Circuit) {
+  let initial_circuits =
+    all_points
+    |> list.index_fold(dict.new(), fn(acc, point, idx) {
+      dict.insert(acc, point, idx)
+    })
+
+  let points_to_circuits =
+    sorted_connected_points_with_dist
+    |> list.take(num_to_connect)
+    |> list.fold(initial_circuits, fn(acc_points_to_circuits, cur) {
+      let left_point = cur.0
+      let right_point = cur.1
+
+      let r_left_ext_circuit_idx = dict.get(acc_points_to_circuits, left_point)
+      let r_right_ext_circuit_idx =
+        dict.get(acc_points_to_circuits, right_point)
+
+      let next_circuits = case r_left_ext_circuit_idx, r_right_ext_circuit_idx {
+        Error(Nil), _ | _, Error(Nil) -> {
+          // Since we create initial circuits based on all points, this should
+          // never be the case
+          panic
+        }
+        Ok(left_existing_idx), Ok(right_existing_id) -> {
+          // Iterate over all points, updating the entire right circuit to 
+          // be part of the left circuit
+          acc_points_to_circuits
+          |> dict.map_values(fn(_key, cur_id) {
+            case right_existing_id == cur_id {
+              True -> left_existing_idx
+              False -> cur_id
+            }
+          })
+        }
+      }
+
+      circuits_dict_to_list(next_circuits)
+
+      next_circuits
+    })
+
+  points_to_circuits
+  |> circuits_dict_to_list
+  |> list.map(Circuit)
+}
+
+// -----------------------------------------------------------------------------
+// Impl - Part 1
 
 type Circuit {
   Circuit(set: Set(Point))
 }
 
 fn connect_circuits(
-  sorted_points_with_dist: List(#(Point, Point, Float)),
+  sorted_connected_points_with_dist: List(#(Point, Point, Float)),
+  all_points: List(Point),
+  num_to_connect: Int,
 ) -> List(Circuit) {
-  let circuits =
-    sorted_points_with_dist
-    |> list.fold(iv.new(), fn(circuits, cur) {
-      let r_existing_idx =
-        iv.find_index(circuits, fn(circuit) {
-          set.contains(circuit, cur.0) || set.contains(circuit, cur.1)
-        })
+  let initial_circuits =
+    all_points
+    |> list.index_fold(dict.new(), fn(acc, point, idx) {
+      dict.insert(acc, point, idx)
+    })
 
-      let next_circuits = case r_existing_idx {
-        Error(Nil) -> iv.append(circuits, set.from_list([cur.0, cur.1]))
-        Ok(existing_idx) -> {
-          iv.try_update(circuits, existing_idx, fn(circuit) {
-            circuit
-            |> set.insert(cur.0)
-            |> set.insert(cur.1)
+  let points_to_circuits =
+    sorted_connected_points_with_dist
+    |> list.take(num_to_connect)
+    |> list.fold(initial_circuits, fn(acc_points_to_circuits, cur) {
+      let left_point = cur.0
+      let right_point = cur.1
+
+      let r_left_ext_circuit_idx = dict.get(acc_points_to_circuits, left_point)
+      let r_right_ext_circuit_idx =
+        dict.get(acc_points_to_circuits, right_point)
+
+      let next_circuits = case r_left_ext_circuit_idx, r_right_ext_circuit_idx {
+        Error(Nil), _ | _, Error(Nil) -> {
+          // Since we create initial circuits based on all points, this should
+          // never be the case
+          panic
+        }
+        Ok(left_existing_idx), Ok(right_existing_id) -> {
+          // Iterate over all points, updating the entire right circuit to 
+          // be part of the left circuit
+          acc_points_to_circuits
+          |> dict.map_values(fn(_key, cur_id) {
+            case right_existing_id == cur_id {
+              True -> left_existing_idx
+              False -> cur_id
+            }
           })
         }
       }
+
+      circuits_dict_to_list(next_circuits)
+
       next_circuits
     })
 
-  let connected =
-    circuits
-    |> iv.to_list
-    |> list.map(Circuit)
-
-  help.loop(connected, fn(cur_connected) {
-    let next_connected = flatten_circuits(cur_connected)
-    case list.length(next_connected) == list.length(cur_connected) {
-      True -> help.Stop(next_connected)
-      False -> help.Continue(next_connected)
-    }
-  })
+  points_to_circuits
+  |> circuits_dict_to_list
+  |> list.map(Circuit)
 }
 
-fn flatten_circuits(circuits: List(Circuit)) -> List(Circuit) {
-  list.fold(circuits, iv.new(), fn(acc_flattened, cur) {
-    let r_existing_idx =
-      iv.find_index(acc_flattened, fn(flattened) {
-        !set.is_disjoint(flattened, cur.set)
-      })
-
-    case r_existing_idx {
-      Error(Nil) -> iv.append(acc_flattened, cur.set)
-      Ok(existing_idx) -> {
-        iv.try_update(acc_flattened, existing_idx, fn(flattened) {
-          set.union(flattened, cur.set)
-        })
+fn circuits_dict_to_list(points_to_circuits: dict.Dict(a, b)) -> List(Set(a)) {
+  points_to_circuits
+  |> dict.to_list
+  |> list.fold(dict.new(), fn(acc, cur) {
+    let #(point, circuit_idx) = cur
+    dict.upsert(acc, circuit_idx, fn(opt_existing) {
+      case opt_existing {
+        option.None -> set.from_list([point])
+        option.Some(existing_points_in_circuit) ->
+          set.insert(existing_points_in_circuit, point)
       }
-    }
+    })
   })
-  |> iv.to_list
-  |> list.map(Circuit)
+  |> dict.values
+  |> list.sort(fn(a, b) { int.compare(set.size(b), set.size(a)) })
 }
 
 fn calc_distances_and_sort(
