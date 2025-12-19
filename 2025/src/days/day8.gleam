@@ -48,9 +48,8 @@ pub fn part_2_run(input: puzzle.Input) -> Result(Nil, String) {
 
   let circuits =
     sorted_points_with_dist
-    |> connect_circuits_until_single(points, list.length(points))
-    |> list.take(3)
-    |> list.fold(1, fn(acc, cur) { acc * set.size(cur.set) })
+    |> connect_circuits_until_single(points)
+    |> option.map(fn(points) { { points.0 }.x * { points.1 }.x })
 
   io.println("Answer: " <> string.inspect(circuits))
   Ok(Nil)
@@ -62,18 +61,18 @@ pub fn part_2_run(input: puzzle.Input) -> Result(Nil, String) {
 fn connect_circuits_until_single(
   sorted_connected_points_with_dist: List(#(Point, Point, Float)),
   all_points: List(Point),
-  num_to_connect: Int,
-) -> List(Circuit) {
+) -> option.Option(#(Point, Point)) {
   let initial_circuits =
     all_points
     |> list.index_fold(dict.new(), fn(acc, point, idx) {
       dict.insert(acc, point, idx)
     })
 
-  let points_to_circuits =
+  let #(_points_to_circuits, opt_final_point) =
     sorted_connected_points_with_dist
-    |> list.take(num_to_connect)
-    |> list.fold(initial_circuits, fn(acc_points_to_circuits, cur) {
+    |> list.fold_until(#(initial_circuits, option.None), fn(acc, cur) {
+      let #(acc_points_to_circuits, _) = acc
+
       let left_point = cur.0
       let right_point = cur.1
 
@@ -81,7 +80,10 @@ fn connect_circuits_until_single(
       let r_right_ext_circuit_idx =
         dict.get(acc_points_to_circuits, right_point)
 
-      let next_circuits = case r_left_ext_circuit_idx, r_right_ext_circuit_idx {
+      let #(next_circuits, distinct_circuit_ids) = case
+        r_left_ext_circuit_idx,
+        r_right_ext_circuit_idx
+      {
         Error(Nil), _ | _, Error(Nil) -> {
           // Since we create initial circuits based on all points, this should
           // never be the case
@@ -90,24 +92,40 @@ fn connect_circuits_until_single(
         Ok(left_existing_idx), Ok(right_existing_id) -> {
           // Iterate over all points, updating the entire right circuit to 
           // be part of the left circuit
+          // 
+          // Also builds a set of distincte circuit IDs encountered, to check
+          // if we've completed the circuit
           acc_points_to_circuits
-          |> dict.map_values(fn(_key, cur_id) {
-            case right_existing_id == cur_id {
-              True -> left_existing_idx
-              False -> cur_id
-            }
-          })
+          |> dict.fold(
+            #(dict.new(), set.new()),
+            fn(acc, cur_point, cur_circuit_id) {
+              let #(sub_acc_points_to_circuits, sub_acc_distinct_circuit_ids) =
+                acc
+              let next_circuit_id = case right_existing_id == cur_circuit_id {
+                True -> left_existing_idx
+                False -> cur_circuit_id
+              }
+              #(
+                dict.insert(
+                  sub_acc_points_to_circuits,
+                  cur_point,
+                  next_circuit_id,
+                ),
+                set.insert(sub_acc_distinct_circuit_ids, next_circuit_id),
+              )
+            },
+          )
         }
       }
 
-      circuits_dict_to_list(next_circuits)
-
-      next_circuits
+      case set.size(distinct_circuit_ids) == 1 {
+        True ->
+          list.Stop(#(next_circuits, option.Some(#(left_point, right_point))))
+        False -> list.Continue(#(next_circuits, option.None))
+      }
     })
 
-  points_to_circuits
-  |> circuits_dict_to_list
-  |> list.map(Circuit)
+  opt_final_point
 }
 
 // -----------------------------------------------------------------------------
